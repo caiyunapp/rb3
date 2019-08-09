@@ -50,3 +50,9 @@ Fanout to all:
 with cluster.fanout(hosts='all') as client:
     client.flushdb()
 ```
+
+## TODO
+
+- [ ] option to choose `crc32`'s method
+- [ ] fix macOS travis test
+- [ ] fix pypy travis test
