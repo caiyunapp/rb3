@@ -11,6 +11,7 @@ from threading import Lock
 
 from rb.router import PartitionRouter
 from rb.clients import RoutingClient, LocalClient
+from rb.utils import integer_types, iteritems, itervalues
 
 
 class HostInfo(object):
@@ -49,7 +50,7 @@ class HostInfo(object):
 
 def _iter_hosts(iterable):
     if isinstance(iterable, dict):
-        iterable = iterable.iteritems()
+        iterable = iteritems(iterable)
     for item in iterable:
         if isinstance(item, tuple):
             host_id, cfg = item
@@ -87,12 +88,13 @@ class Cluster(object):
     """
 
     def __init__(self, hosts, host_defaults=None, pool_cls=None,
-                 pool_options=None, router_cls=None, router_options=None):
+                 pool_options={"encoding":"utf-8", "decode_responses":True}, router_cls=None, router_options=None):
         if pool_cls is None:
             pool_cls = ConnectionPool
         if router_cls is None:
             router_cls = PartitionRouter
         self._lock = Lock()
+        # {"charset":"utf-8", "decode_responses":True}
         self.pool_cls = pool_cls
         self.pool_options = pool_options
         self.router_cls = router_cls
@@ -104,7 +106,7 @@ class Cluster(object):
         self.host_defaults = host_defaults or {}
         for host_config in _iter_hosts(hosts):
             if self.host_defaults:
-                for k, v in self.host_defaults.iteritems():
+                for k, v in iteritems(self.host_defaults):
                     host_config.setdefault(k, v)
             self.add_host(**host_config)
 
@@ -118,7 +120,7 @@ class Cluster(object):
         """
         if host_id is None:
             raise RuntimeError('Host ID is required')
-        elif not isinstance(host_id, (int, long)):
+        elif not isinstance(host_id, integer_types):
             raise ValueError('The host ID has to be an integer')
         host_id = int(host_id)
         with self._lock:
@@ -147,7 +149,7 @@ class Cluster(object):
     def disconnect_pools(self):
         """Disconnects all connections from the internal pools."""
         with self._lock:
-            for pool in self._pools.itervalues():
+            for pool in itervalues(self._pools):
                 pool.disconnect()
             self._pools.clear()
 
@@ -212,7 +214,7 @@ class Cluster(object):
                                             'not support SSL connections.')
                         opts['connection_class'] = SSLConnection
                         opts.update(('ssl_' + k, v) for k, v in
-                                    (host_info.ssl_options or {}).iteritems())
+                                    iteritems(host_info.ssl_options or {}))
                 rv = self.pool_cls(**opts)
                 self._pools[host_id] = rv
             return rv
@@ -349,14 +351,14 @@ class Cluster(object):
         # hosts.
         exists = {}
         with self.fanout(*args, **kwargs) as client:
-            for key, commands in mapping.items():
+            for key, commands in list(mapping.items()):
                 targeted = client.target_key(key)
                 for command in filter(is_script_command, commands):
                     script = command[0]
 
                     # Set the script hash if it hasn't already been set.
                     if not script.sha:
-                        script.sha = sha1(script.script).hexdigest()
+                        script.sha = sha1(script.script.encode()).hexdigest()
 
                     # Check if the script has been loaded on each host that it
                     # will be executed on.
@@ -368,7 +370,7 @@ class Cluster(object):
         # do not already exist.
         results = {}
         with self.fanout(*args, **kwargs) as client:
-            for key, commands in mapping.items():
+            for key, commands in list(mapping.items()):
                 results[key] = []
                 targeted = client.target_key(key)
                 for command in commands:

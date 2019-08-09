@@ -1,10 +1,13 @@
 import time
 import pytest
+
 from redis.client import Script
 from redis.exceptions import ResponseError
 from rb.cluster import Cluster
 from rb.router import UnroutableCommand
 from rb.promise import Promise
+from rb.utils import bytes_type, text_type
+import zlib
 
 
 def test_basic_interface():
@@ -55,61 +58,64 @@ def test_basic_cluster(cluster):
     iterations = 10000
 
     with cluster.map() as client:
-        for x in xrange(iterations):
+        for x in range(iterations):
             client.set('key-%06d' % x, x)
     responses = []
     with cluster.map() as client:
-        for x in xrange(iterations):
+        for x in range(iterations):
             responses.append(client.get('key-%06d' % x))
     ref_sum = sum(int(x.value) for x in responses)
-    assert ref_sum == sum(xrange(iterations))
+    assert ref_sum == sum(range(iterations))
 
 
 def test_basic_cluster_disabled_batch(cluster):
     iterations = 10000
 
     with cluster.map(auto_batch=False) as client:
-        for x in xrange(iterations):
+        for x in range(iterations):
             client.set('key-%06d' % x, x)
     responses = []
     with cluster.map(auto_batch=False) as client:
-        for x in xrange(iterations):
+        for x in range(iterations):
             responses.append(client.get('key-%06d' % x))
     ref_sum = sum(int(x.value) for x in responses)
-    assert ref_sum == sum(xrange(iterations))
+    assert ref_sum == sum(range(iterations))
 
 
 def make_zset_data(x):
-    return [(str(i), float(i)) for i in xrange(x, x + 10)]
+    resp = {}
+    for i in range(x, x + 10):
+        resp.update({str(i): float(i)}) 
+    return resp
 
 
 def test_simple_api(cluster):
     client = cluster.get_routing_client()
     with client.map() as map_client:
-        for x in xrange(10):
+        for x in range(10):
             map_client.set('key:%d' % x, x)
-            map_client.zadd('zset:%d' % x, **dict(make_zset_data(x)))
+            map_client.zadd('zset:%d' % x, mapping=make_zset_data(x))
 
-    for x in xrange(10):
+    for x in range(10):
         assert client.get('key:%d' % x) == str(x)
-        assert client.zrange('zset:%d' % x, 0, -1, withscores=True) == make_zset_data(x)
+        assert dict((item_k, item_v) for item_k, item_v in client.zrange('zset:%d' % x, 0, -1, withscores=True)) == make_zset_data(x)
 
     results = []  # (promise, expected result)
     with client.map() as map_client:
-        for x in xrange(10):
+        for x in range(10):
             results.append((
                 map_client.zrange('zset:%d' % x, 0, -1, withscores=True),
                 make_zset_data(x),
             ))
 
     for promise, expectation in results:
-        assert promise.value == expectation
+        assert dict((item_k, item_v) for item_k, item_v in promise.value) == expectation
 
     with client.map() as map_client:
-        for x in xrange(10):
+        for x in range(10):
             map_client.delete('key:%d' % x)
 
-    for x in xrange(10):
+    for x in range(10):
         assert client.get('key:%d' % x) is None
 
 
@@ -160,18 +166,18 @@ def test_multi_keys_rejected(cluster):
 def test_promise_api(cluster):
     results = []
     with cluster.map() as client:
-        for x in xrange(10):
+        for x in range(10):
             client.set('key-%d' % x, x)
-        for x in xrange(10):
+        for x in range(10):
             client.get('key-%d' % x).then(lambda x: results.append(int(x)))
-    assert sorted(results) == range(10)
+    assert sorted(results) == list(range(10))
 
 
 def test_fanout_api(cluster):
     for host_id in cluster.hosts:
         client = cluster.get_local_client(host_id)
         client.set('foo', str(host_id))
-        client.zadd('zset', **dict(make_zset_data(host_id)))
+        client.zadd('zset', mapping=make_zset_data(host_id))
 
     with cluster.fanout(hosts='all') as client:
         get_result = client.get('foo')
@@ -179,14 +185,16 @@ def test_fanout_api(cluster):
 
     for host_id in cluster.hosts:
         assert get_result.value[host_id] == str(host_id)
-        assert zrange_result.value[host_id] == make_zset_data(host_id)
+        assert dict((item_k, item_v) for item_k, item_v in zrange_result.value[host_id]) == make_zset_data(host_id)
 
 
 def test_fanout_key_target(cluster):
+    # test bytes_type
     with cluster.fanout() as client:
         c = client.target_key('foo')
-        c.set('foo', str(42))
+        c.set('foo', bytes_type(42))
         promise = c.get('foo')
+    print(promise.value)
     assert promise.value == '42'
 
     client = cluster.get_routing_client()
@@ -198,7 +206,7 @@ def test_fanout_targeting_api(cluster):
         client.target(hosts=[0, 1]).set('foo', 42)
         rv = client.target(hosts='all').get('foo')
 
-    assert rv.value.values().count('42') == 2
+    assert list(rv.value.values()).count('42') == 2
 
     # Without hosts this should fail
     with cluster.fanout() as client:
@@ -211,7 +219,7 @@ def test_emulated_batch_apis(cluster):
     assert promise.value is None
     with cluster.map() as map_client:
         promise = map_client.mget(['key:%s' % x for x in range(10)])
-    assert promise.value == [str(x) for x in range(10)]
+    assert promise.value == list(map(bytes_type, list(range(10))))
 
 
 def test_batch_promise_all(cluster):
@@ -270,8 +278,8 @@ def test_execute_commands(cluster):
 
 def test_reconnect(cluster):
     with cluster.map() as client:
-        for x in xrange(10):
-            client.set(str(x), str(x))
+        for x in range(10):
+            client.set(bytes_type(x), bytes_type(x))
 
     with cluster.all() as client:
         client.config_set('timeout', 1)
@@ -280,8 +288,8 @@ def test_reconnect(cluster):
 
     with cluster.map() as client:
         rv = Promise.all([
-            client.get(str(x))
-            for x in xrange(10)
+            client.get(bytes_type(x))
+            for x in range(10)
         ])
 
-    assert rv.value == list(map(str, xrange(10)))
+    assert rv.value == list(map(bytes_type, list(range(10))))

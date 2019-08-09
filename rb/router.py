@@ -2,6 +2,7 @@ from weakref import ref as weakref
 from binascii import crc32
 
 from rb.ketama import Ketama
+from rb.utils import text_type, bytes_type
 from rb._rediscommands import COMMANDS
 
 
@@ -32,7 +33,7 @@ def extract_keys(args, key_spec):
 def assert_gapless_hosts(hosts):
     if not hosts:
         raise BadHostSetup('No hosts were configured.')
-    for x in xrange(len(hosts)):
+    for x in range(len(hosts)):
         if hosts.get(x) is None:
             raise BadHostSetup('Expected host with ID "%d" but no such '
                                'host was found.' % x)
@@ -107,8 +108,8 @@ class ConsistentHashingRouter(BaseRouter):
 
     def __init__(self, cluster):
         BaseRouter.__init__(self, cluster)
-        self._host_id_id_map = dict(self.cluster.hosts.items())
-        self._hash = Ketama(self._host_id_id_map.values())
+        self._host_id_id_map = dict(list(self.cluster.hosts.items()))
+        self._hash = Ketama(list(self._host_id_id_map.values()))
         assert_gapless_hosts(self.cluster.hosts)
 
     def get_host_for_key(self, key):
@@ -125,6 +126,9 @@ class PartitionRouter(BaseRouter):
 
     This router requires that the hosts are gapless which means that
     the IDs for N hosts range from 0 to N-1.
+
+    ``crc32`` returns different value in Python2 and Python3, for details
+    check this link: https://bugs.python.org/issue22341.
     """
 
     def __init__(self, cluster):
@@ -132,8 +136,14 @@ class PartitionRouter(BaseRouter):
         assert_gapless_hosts(self.cluster.hosts)
 
     def get_host_for_key(self, key):
-        if isinstance(key, unicode):
+        if isinstance(key, text_type):
             k = key.encode('utf-8')
         else:
-            k = str(key)
-        return crc32(k) % len(self.cluster.hosts)
+            k = bytes_type(key)
+        # Make sure return value same as in Python3
+        # return (crc32(k) & 0xffffffff) % len(self.cluster.hosts)
+
+        # Make sure return value same as in Python2
+        crc_res = crc32(k)
+        crc_res = (crc_res - ((crc_res & 0x80000000) <<1))
+        return crc_res % len(self.cluster.hosts)
