@@ -1,5 +1,5 @@
 """
-    rb
+    rb3, the rb fork support Python3.7
     ~~
 
     The redis blaster.
@@ -14,7 +14,7 @@ from rb.router import BaseRouter, ConsistentHashingRouter, PartitionRouter, \
 from rb.promise import Promise
 
 
-__version__ = '1.7'
+__version__ = '1.8'
 
 __all__ = [
     # cluster
