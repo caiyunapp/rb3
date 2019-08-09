@@ -1,4 +1,4 @@
-rb: the redis blaster
+rb3, the rb fork support Python3.7
 =====================
 
 .. module:: rb
@@ -22,9 +22,9 @@ What you can do:
 Installation
 ------------
 
-rb is available on PyPI and can be installed from there::
+rb3 is available on PyPI and can be installed from there::
 
-    $ pip install rb
+    $ pip install rb3
 
 Configuration
 -------------

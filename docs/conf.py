@@ -41,7 +41,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'rb'
+project = u'rb3'
 copyright = u'2015, Function Software Inc.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -96,7 +96,7 @@ html_theme = 'rb_theme'
 # documentation.
 html_theme_options = {
     'index_logo':       'rb.png',
-    'github_fork':      'getsentry/rb'
+    'github_fork':      'caiyunapp/rb'
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

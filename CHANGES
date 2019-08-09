@@ -1,6 +1,15 @@
 Rb Changelog
 ============
 
+Version 1.8
+-----------
+
+(released Aug 8th 2019)
+
+- Python 3.7 support.
+    - drop Python 2.7, pypy support.
+- Released to PyPI named `rb3`
+
 Version 1.7
 -----------
 

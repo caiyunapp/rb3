@@ -5,3 +5,12 @@ setup-git:
 
 test:
 	@py.test -vv --tb=short
+
+prepare:
+	source .py3/bin/activate;rm -rf dist/;python setup.py sdist
+
+test-release:
+	source .py3/bin/activate;twine upload --repository testpypi dist/*
+
+prod-release:
+	source .py3/bin/activate;twine upload dist/*
