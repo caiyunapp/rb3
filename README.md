@@ -33,10 +33,7 @@ class PartitionRouter(BaseRouter):
         assert_gapless_hosts(self.cluster.hosts)
 
     def get_host_for_key(self, key):
-        if isinstance(key, text_type):
-            k = key.encode('utf-8')
-        else:
-            k = bytes_type(key)
+        k = six.ensure_binary(key)
         # Make sure return value same as in Python3
         # return (crc32(k) & 0xffffffff) % len(self.cluster.hosts)
 
