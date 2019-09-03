@@ -1,12 +1,13 @@
 import hashlib
 import math
+import six
 
 from bisect import bisect
 
 
 def md5_bytes(key):
     # Py2: map(ord, hashlib.md5(key).digest())
-    return list(hashlib.md5(key.encode('utf-8')).digest())
+    return list(hashlib.md5(six.ensure_binary(key)).digest())
 
 
 class Ketama(object):
