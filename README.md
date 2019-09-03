@@ -50,6 +50,7 @@ But may turn to use Python 3's native `crc32` function in the future.
 - [ ] option to choose `crc32`'s method
 - [ ] fix macOS travis test
 - [ ] fix pypy travis test
+- [ ] validate functions
 
 # rb's original README
 
