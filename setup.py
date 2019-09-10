@@ -31,6 +31,7 @@ setup(
     keywords='Redis rb python3',
     install_requires=[
         'redis>=2.6',
+        'six>=1.12.0'
     ],
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
